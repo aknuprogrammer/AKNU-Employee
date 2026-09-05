@@ -81,7 +81,7 @@ function formatDateToYYYYMMDD(date) {
 
 
 export default function EmployeesPage() {
-  const { isAccountant } = useAuth();
+  const { isAccountant, isEmployee, user } = useAuth();
   const [q, setQ] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [page, setPage] = useState(1);
@@ -221,6 +221,11 @@ export default function EmployeesPage() {
           <p className="text-xs uppercase tracking-[0.18em] text-accent">Records</p>
           <h1 className="font-display text-4xl text-primary mt-1">Employees</h1>
           <p className="text-sm text-muted-foreground mt-2">Manage the university employee directory, add new staff, and import bulk records.</p>
+          {isEmployee && (
+            <h2 className="text-lg font-medium mt-2">
+              {user?.employee_id?.section_id?.name || "Your Section"}
+            </h2>
+          )}
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button variant="outline" size="sm" onClick={downloadEmployeeTemplate} className="w-full sm:w-auto">
@@ -327,7 +332,7 @@ export default function EmployeesPage() {
               <TableHead>Employee Id</TableHead>
               <TableHead>Employee Name</TableHead>
               <TableHead>Designation</TableHead>
-              <TableHead>Department</TableHead>
+              {!isEmployee && <TableHead>Department</TableHead>}
               <TableHead>Category</TableHead>
               <TableHead className="text-center">Place of Working</TableHead>
               <TableHead className="text-center">Joining Date</TableHead>
@@ -356,7 +361,7 @@ export default function EmployeesPage() {
                 <TableCell className="font-mono text-xs">{e.employee_code}</TableCell>
                 <TableCell className="font-medium">{e.full_name}</TableCell>
                 <TableCell>{e.designation || "—"}</TableCell>
-                <TableCell>{e.department_id?.name ?? "—"}</TableCell>
+                {!isEmployee && <TableCell>{e.department_id?.name ?? "—"}</TableCell>}
                 <TableCell>
                   <Badge variant="secondary">{e.category?.name ?? "—"}</Badge>
                 </TableCell>

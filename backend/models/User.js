@@ -5,7 +5,7 @@ const UserSchema = new mongoose.Schema({
   username: { type: String },
   email: { type: String, unique: true, sparse: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['accountant', 'admin', 'employee'], default: 'employee' },
+  role: { type: String, enum: ['accountant', 'admin', 'employee', 'master_admin', 'section_head', 'junior_assistant'], default: 'employee' },
   employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   password_setup: { type: Boolean, default: true }
 }, { timestamps: true });

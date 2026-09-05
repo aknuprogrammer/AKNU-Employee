@@ -123,7 +123,7 @@ const authUser = async (req, res) => {
 
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).populate('employee_id');
     if (user) {
       res.json({
         _id: user._id,
@@ -164,4 +164,13 @@ const setupPassword = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, authUser, getUserProfile, setupPassword };
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find({ employee_id: { $exists: true } }).select('-password').populate('employee_id');
+    res.status(200).json({ success: true, data: users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { registerUser, authUser, getUserProfile, setupPassword, getUsers };

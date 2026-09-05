@@ -1,11 +1,13 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
 const app = express();
 
-// Middleware
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.use(cors());
 app.use(express.json());
 
@@ -17,6 +19,11 @@ app.use('/api/departments', require('./routes/departments'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/form16', require('./routes/form16'));
 app.use('/api/pf-slips', require('./routes/pfAccountSlips'));
+app.use('/api/sections', require('./routes/sections'));
+app.use('/api/attendance', require('./routes/attendance'));
+app.use('/api/registers', require('./routes/registers'));
+app.use('/api/activities', require('./routes/activities'));
+app.use('/api/gatelogs', require('./routes/gatelogs'));
 
 // Basic Route
 app.get('/', (req, res) => {
@@ -52,6 +59,42 @@ mongoose.connect(process.env.MONGO_URI)
           password: 'Admin@1234'
         });
         console.log('🌱 Default admin created → email: admin@aknu.edu  password: Admin@1234');
+      }
+
+      // Auto-seed default MASTER ADMIN
+      const existingMasterAdmin = await User.findOne({ role: 'master_admin' });
+      if (!existingMasterAdmin) {
+        await User.create({
+          email: 'masteradmin@aknu.edu',
+          full_name: 'Master Administrator',
+          role: 'master_admin',
+          password: 'Admin@1234'
+        });
+        console.log('🌱 Default master admin created → email: masteradmin@aknu.edu  password: Admin@1234');
+      }
+
+      // Auto-seed default SECTION HEAD
+      const existingSectionHead = await User.findOne({ role: 'section_head' });
+      if (!existingSectionHead) {
+        await User.create({
+          email: 'sectionhead@aknu.edu',
+          full_name: 'Section Head',
+          role: 'section_head',
+          password: 'Admin@1234'
+        });
+        console.log('🌱 Default section head created → email: sectionhead@aknu.edu  password: Admin@1234');
+      }
+
+      // Auto-seed default JUNIOR ASSISTANT
+      const existingJuniorAssistant = await User.findOne({ role: 'junior_assistant' });
+      if (!existingJuniorAssistant) {
+        await User.create({
+          email: 'juniorassistant@aknu.edu',
+          full_name: 'Junior Assistant',
+          role: 'junior_assistant',
+          password: 'Admin@1234'
+        });
+        console.log('🌱 Default junior assistant created → email: juniorassistant@aknu.edu  password: Admin@1234');
       }
 
       // Auto-seed Departments

@@ -12,6 +12,12 @@ import {
   Menu,
   Landmark,
   FileSpreadsheet,
+  CalendarCheck,
+  Inbox,
+  Send,
+  PlaneTakeoff,
+  Activity,
+  CheckSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -31,15 +37,39 @@ export function AppShell({ children }) {
 
   const nav = isAccountant
     ? [
-      ...(user?.role === "admin" ? [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] : []),
-      { to: "/employees", label: "Employees", icon: Users },
-      { to: "/payslips", label: "Payslips", icon: FileText },
-      { to: "/form16", label: "Form 16", icon: Landmark },
+      // Normal Admin (Payroll)
+      ...(user?.role === "admin" ? [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/payslips", label: "Payslips", icon: FileText },
+        { to: "/form16", label: "Form 16", icon: Landmark },
+      ] : []),
+      // Master Admin
+      ...(user?.role === "master_admin" ? [
+        { to: "/employees", label: "Employees Master", icon: Users },
+        { to: "/sections", label: "Sections Master", icon: LayoutDashboard },
+        { to: "/attendance", label: "Global Attendance", icon: CalendarCheck },
+        { to: "/inward-register", label: "Global Inward", icon: Inbox },
+        { to: "/outward-register", label: "Global Outward", icon: Send },
+        { to: "/movement-register", label: "Global Movement", icon: PlaneTakeoff },
+        { to: "/daily-activity", label: "Global Activity", icon: Activity },
+      ] : []),
+      // Section Head
+      ...(user?.role === "section_head" ? [
+        { to: "/attendance", label: "Take Attendance", icon: CalendarCheck },
+        { to: "/pending-approvals", label: "Pending Approvals", icon: CheckSquare }
+      ] : []),
+      // Junior Assistant
+      ...(user?.role === "junior_assistant" ? [
+        { to: "/inward-register", label: "Inward Register", icon: Inbox },
+        { to: "/outward-register", label: "Outward Register", icon: Send },
+      ] : []),
     ]
     : [
       { to: "/my-payslips", label: "My Payslips", icon: FileText },
       { to: "/my-consolidated", label: "Consolidated Payslips", icon: FileSpreadsheet },
       { to: "/my-form16", label: "My Form 16", icon: Landmark },
+      { to: "/movement-register", label: "My Movement", icon: PlaneTakeoff },
+      { to: "/daily-activity", label: "My Daily Activity", icon: Activity },
     ];
 
   return (

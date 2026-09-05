@@ -16,23 +16,39 @@ import VerifyPayslip from './screens/payslips/VerifyPayslip';
 import MyConsolidated from './screens/employee-portal/MyConsolidated';
 import PFAccountSlips from './screens/pf-slips/PFAccountSlips';
 import MyPFAccountSlips from './screens/employee-portal/MyPFAccountSlips';
+import EmployeeAttendance from './screens/attendance/EmployeeAttendance';
+import GlobalAttendance from './screens/attendance/GlobalAttendance';
+import InwardRegister from './screens/registers/InwardRegister';
+import OutwardRegister from './screens/registers/OutwardRegister';
+import MovementRegister from './screens/registers/MovementRegister';
+import DailyActivity from './screens/activities/DailyActivity';
+import PendingApprovals from './screens/approvals/PendingApprovals';
+import Sections from './screens/master/Sections';
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, employeeRoute = false }) {
+function ProtectedRoute({ children, employeeRoute = false, sharedRoute = false }) {
   const { user, isEmployee } = useAuth();
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  if (isEmployee && !employeeRoute) {
-    return <Navigate to="/my-payslips" replace />;
-  }
-  if (!isEmployee && employeeRoute) {
-    const to = user?.role === 'admin' ? "/dashboard" : "/employees";
-    return <Navigate to={to} replace />;
+  if (!sharedRoute) {
+    if (isEmployee && !employeeRoute) {
+      return <Navigate to="/my-payslips" replace />;
+    }
+    if (!isEmployee && employeeRoute) {
+      const to = user?.role === 'admin' ? "/dashboard" : "/employees";
+      return <Navigate to={to} replace />;
+    }
   }
   return <AppShell>{children}</AppShell>;
 }
+
+const AttendanceRouter = () => {
+  const { user } = useAuth();
+  if (user?.role === 'master_admin') return <GlobalAttendance />;
+  return <EmployeeAttendance />;
+};
 
 function App() {
   return (
@@ -53,6 +69,11 @@ function App() {
             <Route path="/employees" element={
               <ProtectedRoute>
                 <Employees />
+              </ProtectedRoute>
+            } />
+            <Route path="/sections" element={
+              <ProtectedRoute>
+                <Sections />
               </ProtectedRoute>
             } />
             <Route path="/payslips" element={
@@ -112,6 +133,38 @@ function App() {
               </ProtectedRoute>
             } />
             
+            {/* New Modules */}
+            <Route path="/attendance" element={
+              <ProtectedRoute>
+                <AttendanceRouter />
+              </ProtectedRoute>
+            } />
+            <Route path="/inward-register" element={
+              <ProtectedRoute>
+                <InwardRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="/outward-register" element={
+              <ProtectedRoute>
+                <OutwardRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="/movement-register" element={
+              <ProtectedRoute sharedRoute={true}>
+                <MovementRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="/daily-activity" element={
+              <ProtectedRoute sharedRoute={true}>
+                <DailyActivity />
+              </ProtectedRoute>
+            } />
+            <Route path="/pending-approvals" element={
+              <ProtectedRoute>
+                <PendingApprovals />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/" element={
               <ProtectedRoute>
                 <RootRedirect />
@@ -129,6 +182,9 @@ function RootRedirect() {
   const { user, isEmployee } = useAuth();
   if (isEmployee) return <Navigate to="/my-payslips" replace />;
   if (user?.role === 'admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role === 'master_admin') return <Navigate to="/employees" replace />;
+  if (user?.role === 'section_head') return <Navigate to="/attendance" replace />;
+  if (user?.role === 'junior_assistant') return <Navigate to="/inward-register" replace />;
   return <Navigate to="/employees" replace />;
 }
 

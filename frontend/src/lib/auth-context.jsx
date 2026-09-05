@@ -60,7 +60,7 @@ export function AuthProvider({ children }) {
           const { data } = await api.get('/auth/profile');
           setUser(data);
           setSession({ access_token: token });
-          setIsAccountant(data.role === 'accountant' || data.role === 'admin');
+          setIsAccountant(['accountant', 'admin', 'master_admin', 'section_head', 'junior_assistant'].includes(data.role));
           setIsEmployee(data.role === 'employee');
         } catch (error) {
           console.error("Auth init error", error);
