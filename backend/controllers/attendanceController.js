@@ -1,13 +1,14 @@
 const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
 const Student = require('../models/Student');
+const PortalUser = require('../models/PortalUser');
 
 // @desc    Get employees for a specific section
 // @route   GET /api/attendance/employees/:sectionId
 // @access  Private
 exports.getSectionEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find({ section_id: req.params.sectionId, is_active: true });
+    const employees = await PortalUser.find({ section_id: req.params.sectionId });
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -40,6 +41,26 @@ exports.submitAttendance = async (req, res) => {
     }
     const attendance = await Attendance.create(req.body);
     res.status(201).json({ success: true, data: attendance });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update attendance
+// @route   PUT /api/attendance/:id
+// @access  Private
+exports.updateAttendance = async (req, res) => {
+  try {
+    const { records } = req.body;
+    const attendance = await Attendance.findByIdAndUpdate(
+      req.params.id,
+      { records },
+      { new: true, runValidators: true }
+    );
+    if (!attendance) {
+      return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    }
+    res.status(200).json({ success: true, data: attendance });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -105,10 +126,42 @@ exports.getAttendances = async (req, res) => {
         query.date = { $gte: start, $lte: end };
     }
 
-    const attendances = await Attendance.find(query)
-        .populate('prepared_by', 'username full_name')
+    let attendances = await Attendance.find(query)
         .populate('section_id', 'name')
-        .sort('-date');
+        .sort('-date')
+        .lean();
+        
+    const User = require('../models/User');
+    const PortalUser = require('../models/PortalUser');
+    const Employee = require('../models/Employee');
+
+    for (let att of attendances) {
+      // 1. Populate prepared_by
+      if (att.prepared_by) {
+        let prepUser = await User.findById(att.prepared_by).select('username full_name role').lean();
+        if (!prepUser) {
+          prepUser = await PortalUser.findById(att.prepared_by).select('username full_name role is_section_head').lean();
+        }
+        att.prepared_by = prepUser || { _id: att.prepared_by, full_name: 'Unknown' };
+      }
+
+      // 2. Populate records.employee_id
+      if (att.records && att.records.length > 0) {
+        const empIds = att.records.map(r => r.employee_id).filter(Boolean);
+        const emps = await Employee.find({ _id: { $in: empIds } }).select('full_name').lean();
+        const portalUsers = await PortalUser.find({ _id: { $in: empIds } }).select('full_name').lean();
+        
+        const userMap = {};
+        emps.forEach(e => userMap[e._id.toString()] = e);
+        portalUsers.forEach(u => userMap[u._id.toString()] = u);
+        
+        att.records.forEach(rec => {
+          if (rec.employee_id) {
+            rec.employee_id = userMap[rec.employee_id.toString()] || { _id: rec.employee_id, full_name: 'Unknown' };
+          }
+        });
+      }
+    }
         
     res.status(200).json({ success: true, data: attendances });
   } catch (error) {

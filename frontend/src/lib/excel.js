@@ -47,3 +47,19 @@ export function downloadEmployeeTemplate() {
     "employee_import_template.xlsx",
   );
 }
+
+export function downloadPortalUserTemplate() {
+  downloadExcel(
+    [
+      {
+        full_name: "John Doe",
+        email: "john.doe@aknu.edu.in",
+        department: "Computer Science",
+        section: "IT Support",
+        is_section_head: false,
+        password: "TempPassword123!",
+      },
+    ],
+    "portal_users_template.xlsx",
+  );
+}

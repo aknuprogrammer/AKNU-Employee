@@ -45,8 +45,7 @@ export function AppShell({ children }) {
       ] : []),
       // Master Admin
       ...(user?.role === "master_admin" ? [
-        { to: "/employees", label: "Employees Master", icon: Users },
-        { to: "/sections", label: "Sections Master", icon: LayoutDashboard },
+        { to: "/portal-users", label: "Global Employees", icon: Users },
         { to: "/attendance", label: "Global Attendance", icon: CalendarCheck },
         { to: "/inward-register", label: "Global Inward", icon: Inbox },
         { to: "/outward-register", label: "Global Outward", icon: Send },
@@ -55,7 +54,9 @@ export function AppShell({ children }) {
       ] : []),
       // Section Head
       ...(user?.role === "section_head" ? [
+        { to: "/portal-users", label: "Employees", icon: Users },
         { to: "/attendance", label: "Take Attendance", icon: CalendarCheck },
+        { to: "/daily-activity", label: "Daily Activity", icon: Activity },
         { to: "/pending-approvals", label: "Pending Approvals", icon: CheckSquare }
       ] : []),
       // Junior Assistant
@@ -65,11 +66,18 @@ export function AppShell({ children }) {
       ] : []),
     ]
     : [
-      { to: "/my-payslips", label: "My Payslips", icon: FileText },
-      { to: "/my-consolidated", label: "Consolidated Payslips", icon: FileSpreadsheet },
-      { to: "/my-form16", label: "My Form 16", icon: Landmark },
-      { to: "/movement-register", label: "My Movement", icon: PlaneTakeoff },
-      { to: "/daily-activity", label: "My Daily Activity", icon: Activity },
+      // Regular Employee
+      ...(user?.role === "employee" ? [
+        { to: "/my-payslips", label: "My Payslips", icon: FileText },
+        { to: "/my-consolidated", label: "Consolidated Payslips", icon: FileSpreadsheet },
+        { to: "/my-form16", label: "My Form 16", icon: Landmark },
+        // { to: "/movement-register", label: "My Movement", icon: PlaneTakeoff },
+        // { to: "/daily-activity", label: "My Daily Activity", icon: Activity },
+      ] : []),
+      // Section Member
+      ...(user?.role === "section_member" ? [
+        { to: "/daily-activity", label: "My Daily Activity", icon: Activity },
+      ] : []),
     ];
 
   return (
@@ -81,7 +89,7 @@ export function AppShell({ children }) {
               <img src={logo} alt="Logo" className="h-9 w-9" />
             </div>
             <div>
-              <p className="font-display text-lg leading-tight">AKNU Payroll</p>
+              <p className="font-display text-lg leading-tight">AKNU</p>
               <p className="text-[11px] opacity-70 leading-tight">Adikavi Nannaya University</p>
             </div>
           </div>

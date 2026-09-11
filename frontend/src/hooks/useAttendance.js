@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSectionEmployees, getSectionStudents, submitAttendance, getPendingAttendance, approveAttendance, getAttendances } from '../services/attendanceService';
+import { getSectionEmployees, getSectionStudents, submitAttendance, updateAttendance, getPendingAttendance, approveAttendance, getAttendances } from '../services/attendanceService';
 
 export const useSectionEmployees = (sectionId) => {
   return useQuery({
@@ -31,6 +31,17 @@ export const useSubmitAttendance = () => {
     mutationFn: submitAttendance,
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['attendance', 'pending', variables.section_id] });
+      queryClient.invalidateQueries({ queryKey: ['attendances'] });
+    },
+  });
+};
+
+export const useUpdateAttendance = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateAttendance,
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['attendances'] });
     },
   });
 };

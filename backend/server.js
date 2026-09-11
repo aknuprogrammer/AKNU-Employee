@@ -24,6 +24,7 @@ app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/registers', require('./routes/registers'));
 app.use('/api/activities', require('./routes/activities'));
 app.use('/api/gatelogs', require('./routes/gatelogs'));
+app.use('/api/portal-users', require('./routes/portalUsers'));
 
 // Basic Route
 app.get('/', (req, res) => {

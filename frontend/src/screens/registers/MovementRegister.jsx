@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useRegisters, useSubmitRegister, useUpdateRegister } from '../../hooks/useRegisters';
 import { useSectionEmployees } from '../../hooks/useAttendance';
 import { useAuth } from '@/lib/auth-context';
-const showSection = user?.role !== 'employee';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ import { toast } from 'sonner';
 
 export const MovementRegister = () => {
   const { user } = useAuth();
+  const showSection = user?.role !== 'employee';
   const defaultSectionId = user?.role === 'master_admin' ? 'all' : (user?.employee_id?.section_id || '');
 
   const [filters, setFilters] = useState({

@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Employee = require('../models/Employee');
+const PortalUser = require('../models/PortalUser');
 const jwt = require('jsonwebtoken');
 const { ensureUserExistsForEmployee } = require('./employeesController');
 
@@ -125,15 +126,28 @@ const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate('employee_id');
     if (user) {
-      res.json({
+      return res.json({
         _id: user._id,
         email: user.email,
         role: user.role,
         employee_id: user.employee_id
       });
-    } else {
-      res.status(404).json({ message: 'User not found' });
     }
+
+    const portalUser = await PortalUser.findById(req.user._id);
+    if (portalUser) {
+      return res.json({
+        _id: portalUser._id,
+        full_name: portalUser.full_name,
+        email: portalUser.email,
+        department_id: portalUser.department_id,
+        section_id: portalUser.section_id,
+        is_section_head: portalUser.is_section_head,
+        role: portalUser.is_section_head ? 'section_head' : 'section_member',
+      });
+    }
+
+    res.status(404).json({ message: 'User not found' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -173,4 +187,31 @@ const getUsers = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, authUser, getUserProfile, setupPassword, getUsers };
+const portalLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    const user = await PortalUser.findOne({ email: email.toLowerCase() });
+    if (user && (await user.matchPassword(password))) {
+      return res.json({
+        _id: user._id,
+        full_name: user.full_name,
+        email: user.email,
+        department_id: user.department_id,
+        section_id: user.section_id,
+        is_section_head: user.is_section_head,
+        role: user.is_section_head ? 'section_head' : 'section_member',
+        token: generateToken(user._id),
+      });
+    }
+
+    res.status(401).json({ message: 'Invalid credentials' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { registerUser, authUser, getUserProfile, setupPassword, getUsers, portalLogin };

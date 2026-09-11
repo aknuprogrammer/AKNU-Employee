@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 
-export const FilterBar = ({ filters, setFilters, showSectionFilter = true }) => {
+export const FilterBar = ({ filters, setFilters, showSectionFilter = true, singleDate = false }) => {
   const { user } = useAuth();
 
   const { data: sections } = useQuery({
@@ -40,19 +40,30 @@ export const FilterBar = ({ filters, setFilters, showSectionFilter = true }) => 
       )}
 
       <div className="flex gap-2 items-center w-full sm:w-auto">
-        <Input 
-          type="date" 
-          value={filters.startDate} 
-          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-          className="w-auto"
-        />
-        <span className="text-muted-foreground text-sm">to</span>
-        <Input 
-          type="date" 
-          value={filters.endDate} 
-          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-          className="w-auto"
-        />
+        {singleDate ? (
+          <Input 
+            type="date" 
+            value={filters.date || ''} 
+            onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+            className="w-auto"
+          />
+        ) : (
+          <>
+            <Input 
+              type="date" 
+              value={filters.startDate || ''} 
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              className="w-auto"
+            />
+            <span className="text-muted-foreground text-sm">to</span>
+            <Input 
+              type="date" 
+              value={filters.endDate || ''} 
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              className="w-auto"
+            />
+          </>
+        )}
       </div>
 
       <div className="w-full sm:flex-1 relative">

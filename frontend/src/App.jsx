@@ -24,7 +24,8 @@ import MovementRegister from './screens/registers/MovementRegister';
 import DailyActivity from './screens/activities/DailyActivity';
 import PendingApprovals from './screens/approvals/PendingApprovals';
 import Sections from './screens/master/Sections';
-
+import PortalUsers from './screens/portal-users/PortalUsers';
+import PortalLogin from './screens/auth/PortalLogin';
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children, employeeRoute = false, sharedRoute = false }) {
@@ -58,6 +59,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/portal-login" element={<PortalLogin />} />
             <Route path="/verify/:payslipNumber" element={<VerifyPayslip />} />
             
             {/* Protected Routes */}
@@ -71,11 +73,7 @@ function App() {
                 <Employees />
               </ProtectedRoute>
             } />
-            <Route path="/sections" element={
-              <ProtectedRoute>
-                <Sections />
-              </ProtectedRoute>
-            } />
+
             <Route path="/payslips" element={
               <ProtectedRoute>
                 <Payslips />
@@ -164,6 +162,11 @@ function App() {
                 <PendingApprovals />
               </ProtectedRoute>
             } />
+            <Route path="/portal-users" element={
+              <ProtectedRoute>
+                <PortalUsers />
+              </ProtectedRoute>
+            } />
             
             <Route path="/" element={
               <ProtectedRoute>
@@ -182,7 +185,7 @@ function RootRedirect() {
   const { user, isEmployee } = useAuth();
   if (isEmployee) return <Navigate to="/my-payslips" replace />;
   if (user?.role === 'admin') return <Navigate to="/dashboard" replace />;
-  if (user?.role === 'master_admin') return <Navigate to="/employees" replace />;
+  if (user?.role === 'master_admin') return <Navigate to="/portal-users" replace />;
   if (user?.role === 'section_head') return <Navigate to="/attendance" replace />;
   if (user?.role === 'junior_assistant') return <Navigate to="/inward-register" replace />;
   return <Navigate to="/employees" replace />;

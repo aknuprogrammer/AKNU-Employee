@@ -15,6 +15,11 @@ export const submitAttendance = async (attendanceData) => {
   return data.data;
 };
 
+export const updateAttendance = async ({ id, ...attendanceData }) => {
+  const { data } = await api.put(`/attendance/${id}`, attendanceData);
+  return data.data;
+};
+
 export const getPendingAttendance = async (sectionId) => {
   const { data } = await api.get(`/attendance/pending/${sectionId}`);
   return data.data;

@@ -10,7 +10,6 @@ export const AttendanceGrid = ({ employees, attendanceState, onStatusChange, onR
         <TableHeader className="bg-primary/100">
           <TableRow>
             <TableHead>Employee Name</TableHead>
-            <TableHead>Designation</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Remarks</TableHead>
           </TableRow>
@@ -19,7 +18,6 @@ export const AttendanceGrid = ({ employees, attendanceState, onStatusChange, onR
           {employees?.map((emp) => (
             <TableRow key={emp._id}>
               <TableCell className="font-medium">{emp.full_name}</TableCell>
-              <TableCell>{emp.designation}</TableCell>
               <TableCell>
                 <Select
                   value={attendanceState[emp._id]?.status || 'Present'}
@@ -48,7 +46,7 @@ export const AttendanceGrid = ({ employees, attendanceState, onStatusChange, onR
           ))}
           {(!employees || employees.length === 0) && (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={3} className="h-24 text-center">
                 No employees found in your section.
               </TableCell>
             </TableRow>

@@ -18,6 +18,11 @@ export const submitActivity = async (activityData) => {
   return data.data;
 };
 
+export const updateActivity = async ({ id, ...activityData }) => {
+  const { data } = await api.put(`/activities/${id}`, activityData);
+  return data.data;
+};
+
 export const approveActivity = async ({ id, status, comments }) => {
   const { data } = await api.put(`/activities/${id}/approve`, {
     approval_status: status,

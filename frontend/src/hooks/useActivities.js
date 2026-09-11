@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActivities, submitActivity, approveActivity } from '../services/activityService';
+import { getActivities, submitActivity, approveActivity, updateActivity } from '../services/activityService';
 
 export const useActivities = (filters = {}) => {
   return useQuery({
@@ -13,8 +13,18 @@ export const useSubmitActivity = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: submitActivity,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['activities', data.section_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+  });
+};
+
+export const useUpdateActivity = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateActivity,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
   });
 };
@@ -23,8 +33,8 @@ export const useApproveActivity = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: approveActivity,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['activities', data.section_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
     },
   });
 };
