@@ -6,7 +6,7 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/compon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Eye, EyeOff } from "lucide-react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,21 +14,42 @@ import { useAuth } from "@/lib/auth-context";
 
 export default function PortalUserForm({ initialData = null, onDone }) {
   const { user } = useAuth();
-  const isSectionHead = user?.role === 'section_head';
+  const isSectionHead = user?.role === 'section_head' || user?.is_section_head === true;
   const qc = useQueryClient();
   const [deptOpen, setDeptOpen] = useState(false);
   const [sectionOpen, setSectionOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
     password: "",
     department_id: "",
     section_id: "",
+    role: "section_member",
     is_section_head: false,
   });
 
   const [deptSearch, setDeptSearch] = useState("");
   const [sectionSearch, setSectionSearch] = useState("");
+
+  const { data: depts } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const { data } = await api.get(`/departments?t=${Date.now()}`);
+      return data || [];
+    }
+  });
+
+  const { data: sections } = useQuery({
+    queryKey: ["sections"],
+    queryFn: async () => {
+      const { data } = await api.get(`/sections?t=${Date.now()}`);
+      return data.data || []; // sections API wraps in { success, data }
+    }
+  });
+
+  const headSectionId = user?.section_id?._id || user?.section_id || sections?.[0]?._id || "";
+  const headSectionName = user?.section_id?.name || sections?.find(s => s._id === headSectionId)?.name || sections?.[0]?.name || "";
 
   const createDeptMutation = useMutation({
     mutationFn: async (name) => {
@@ -68,32 +89,26 @@ export default function PortalUserForm({ initialData = null, onDone }) {
 
   useEffect(() => {
     if (initialData) {
+      const currentRole = initialData.role || (initialData.is_section_head ? 'section_head' : 'section_member');
       setForm({
         full_name: initialData.full_name || "",
         email: initialData.email || "",
-        password: "", // Leave blank on edit unless changing
+        password: initialData.plain_password || "",
         department_id: initialData.department_id?._id || initialData.department_id || "",
-        section_id: initialData.section_id?._id || initialData.section_id || "",
-        is_section_head: initialData.is_section_head || false,
+        section_id: isSectionHead ? headSectionId : (initialData.section_id?._id || initialData.section_id || ""),
+        role: isSectionHead && currentRole === 'section_head' ? 'section_member' : currentRole,
+        is_section_head: false,
       });
+    } else if (isSectionHead && headSectionId) {
+      setForm(prev => ({
+        ...prev,
+        section_id: headSectionId,
+        department_id: prev.department_id || user?.department_id?._id || user?.department_id || "",
+        role: prev.role === 'section_head' ? 'section_member' : (prev.role || 'section_member'),
+        is_section_head: false,
+      }));
     }
-  }, [initialData]);
-
-  const { data: depts } = useQuery({
-    queryKey: ["departments"],
-    queryFn: async () => {
-      const { data } = await api.get(`/departments?t=${Date.now()}`);
-      return data || [];
-    }
-  });
-
-  const { data: sections } = useQuery({
-    queryKey: ["sections"],
-    queryFn: async () => {
-      const { data } = await api.get(`/sections?t=${Date.now()}`);
-      return data.data || []; // sections API wraps in { success, data }
-    }
-  });
+  }, [initialData, isSectionHead, headSectionId, user]);
 
   const mutation = useMutation({
     mutationFn: async (payload) => {
@@ -114,8 +129,9 @@ export default function PortalUserForm({ initialData = null, onDone }) {
           full_name: "",
           email: "",
           password: "",
-          department_id: "",
-          section_id: "",
+          department_id: isSectionHead ? (user?.department_id?._id || user?.department_id || "") : "",
+          section_id: isSectionHead ? headSectionId : "",
+          role: "section_member",
           is_section_head: false,
         });
       }
@@ -129,11 +145,19 @@ export default function PortalUserForm({ initialData = null, onDone }) {
   const onSave = () => {
     if (!form.full_name || !form.email) return toast.error("Name and Email are required");
     if (!initialData && !form.password) return toast.error("Password is required for new users");
-    if (!isSectionHead && !form.section_id) return toast.error("Section Name is required");
     
-    const payload = { ...form };
+    let assignedRole = form.role || 'section_member';
+    if (isSectionHead && assignedRole === 'section_head') {
+      assignedRole = 'section_member';
+    }
+
+    const payload = { 
+      ...form,
+      role: assignedRole,
+      is_section_head: !isSectionHead && assignedRole === 'section_head',
+    };
     if (isSectionHead) {
-      payload.section_id = user?.section_id?._id || user?.section_id;
+      payload.section_id = headSectionId;
     }
     mutation.mutate(payload);
   };
@@ -159,7 +183,27 @@ export default function PortalUserForm({ initialData = null, onDone }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
         {F("full_name", "Full Name *")}
         {F("email", "Email *", "email")}
-        {F("password", initialData ? "Password (leave blank to keep)" : "Password *", "password")}
+        
+        <div className="space-y-1.5">
+          <Label className="text-xs">{initialData ? "Password" : "Password *"}</Label>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder={initialData ? "Leave blank or edit password" : "Password *"}
+              className="h-9 pr-9"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground hover:text-foreground focus:outline-none"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs">Department (Optional)</Label>
@@ -227,10 +271,12 @@ export default function PortalUserForm({ initialData = null, onDone }) {
             <Label className="text-xs">Section Name *</Label>
             <Input 
               type="text" 
-              value={sections?.find((s) => s._id === (user?.section_id?._id || user?.section_id))?.name || "Loading..."} 
+              value={headSectionName || "Loading..."} 
               disabled 
-              className="h-9 bg-muted text-muted-foreground" 
+              readOnly 
+              className="h-9 bg-muted text-foreground font-medium cursor-not-allowed select-none" 
             />
+            <p className="text-[11px] text-muted-foreground">Locked to your assigned section</p>
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -296,12 +342,22 @@ export default function PortalUserForm({ initialData = null, onDone }) {
         )}
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Role in Section</Label>
-          <Select value={form.is_section_head ? "head" : "member"} onValueChange={(v) => setForm({ ...form, is_section_head: v === "head" })}>
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+          <Label className="text-xs">Role in Section *</Label>
+          <Select 
+            value={isSectionHead && form.role === 'section_head' ? 'section_member' : (form.role || "section_member")} 
+            onValueChange={(v) => setForm({ 
+              ...form, 
+              role: v, 
+              is_section_head: v === "section_head" 
+            })}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select Role" />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="member">Section Member</SelectItem>
-              <SelectItem value="head">Section Head</SelectItem>
+              <SelectItem value="section_member">Section Member</SelectItem>
+              <SelectItem value="junior_assistant">Junior Assistant (Inward/Outward)</SelectItem>
+              {!isSectionHead && <SelectItem value="section_head">Section Head</SelectItem>}
             </SelectContent>
           </Select>
         </div>

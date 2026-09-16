@@ -1,18 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { getSectionEmployees, getSectionStudents, submitAttendance, updateAttendance, getPendingAttendance, approveAttendance, getAttendances } = require('../controllers/attendanceController');
+const { cloudUpload } = require('../config/cloudinary');
 
-const mockProtect = (req, res, next) => {
-    req.user = { id: '60d0fe4f5311236168a109ca', role: 'admin' };
-    next();
-};
+const { protect } = require('../middleware/auth');
 
-router.get('/employees/:sectionId', mockProtect, getSectionEmployees);
-router.get('/students/:sectionId', mockProtect, getSectionStudents);
-router.post('/', mockProtect, submitAttendance);
-router.get('/', mockProtect, getAttendances);
-router.route('/:id').put(mockProtect, updateAttendance);
-router.get('/pending/:sectionId', mockProtect, getPendingAttendance);
-router.put('/:id/approve', mockProtect, approveAttendance);
+router.get('/employees/:sectionId', protect, getSectionEmployees);
+router.get('/students/:sectionId', protect, getSectionStudents);
+router.post('/', protect, cloudUpload.array('photos', 5), submitAttendance);
+router.get('/', protect, getAttendances);
+router.route('/:id').put(protect, updateAttendance);
+router.get('/pending/:sectionId', protect, getPendingAttendance);
+router.put('/:id/approve', protect, approveAttendance);
 
 module.exports = router;

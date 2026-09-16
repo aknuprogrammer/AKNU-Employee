@@ -2,13 +2,29 @@ const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
 const Student = require('../models/Student');
 const PortalUser = require('../models/PortalUser');
+const Section = require('../models/Section');
+const mongoose = require('mongoose');
+const { getSectionHeadSectionId } = require('../utils/userUtils');
 
 // @desc    Get employees for a specific section
 // @route   GET /api/attendance/employees/:sectionId
 // @access  Private
 exports.getSectionEmployees = async (req, res) => {
   try {
-    const employees = await PortalUser.find({ section_id: req.params.sectionId });
+    let query = {};
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId || (req.params.sectionId !== 'all' && userSectionId.toString() !== req.params.sectionId.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view other section members' });
+      }
+      query.section_id = userSectionId;
+    } else if (req.params.sectionId && req.params.sectionId !== 'all') {
+      query.section_id = req.params.sectionId;
+    }
+    const employees = await PortalUser.find(query)
+      .populate('section_id', 'name')
+      .select('-password')
+      .lean();
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -20,6 +36,12 @@ exports.getSectionEmployees = async (req, res) => {
 // @access  Private
 exports.getSectionStudents = async (req, res) => {
   try {
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId || userSectionId.toString() !== req.params.sectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view other section students' });
+      }
+    }
     const students = await Student.find({ section_id: req.params.sectionId, is_active: true });
     res.status(200).json({ success: true, data: students });
   } catch (error) {
@@ -27,19 +49,47 @@ exports.getSectionStudents = async (req, res) => {
   }
 };
 
+const { uploadToCloudinary } = require('../config/cloudinary');
+
 // @desc    Submit attendance
 // @route   POST /api/attendance
 // @access  Private
 exports.submitAttendance = async (req, res) => {
   try {
-    req.body.prepared_by = req.user.id; 
+    const attendanceData = { ...req.body };
+    attendanceData.prepared_by = req.user.id; 
+
+    // When sent as multipart/form-data, records may arrive as a JSON string
+    if (typeof attendanceData.records === 'string') {
+      try {
+        attendanceData.records = JSON.parse(attendanceData.records);
+      } catch (e) {
+        // keep records as is if already parsed
+      }
+    }
+
+    // Upload attendance verification photos to Cloudinary
+    let photos = [];
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map(f =>
+        uploadToCloudinary(f.buffer, {
+          folder: 'aknu_portal/attendance',
+        })
+      );
+      const results = await Promise.all(uploadPromises);
+      photos = results.map(r => r.secure_url);
+    }
+    if (photos.length > 0) {
+      attendanceData.photos = photos;
+    }
+
     // Section head submits attendance directly, so it is pre-approved
     if (req.user.role === 'section_head') {
-      req.body.approval_status = 'Approved';
-      req.body.approved_by = req.user.id;
-      req.body.approved_at = Date.now();
+      attendanceData.approval_status = 'Approved';
+      attendanceData.approved_by = req.user.id;
+      attendanceData.approved_at = Date.now();
     }
-    const attendance = await Attendance.create(req.body);
+    const attendance = await Attendance.create(attendanceData);
     res.status(201).json({ success: true, data: attendance });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -71,6 +121,12 @@ exports.updateAttendance = async (req, res) => {
 // @access  Private (Section Head)
 exports.getPendingAttendance = async (req, res) => {
   try {
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId || userSectionId.toString() !== req.params.sectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
+    }
     const attendances = await Attendance.find({ 
       section_id: req.params.sectionId, 
       approval_status: 'Pending' 
@@ -114,7 +170,10 @@ exports.getAttendances = async (req, res) => {
     const { section_id, startDate, endDate, search } = req.query;
     
     let query = {};
-    if (section_id && section_id !== 'all') {
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      query.section_id = userSectionId ? userSectionId : new mongoose.Types.ObjectId();
+    } else if (section_id && section_id !== 'all') {
       query.section_id = section_id;
     }
     

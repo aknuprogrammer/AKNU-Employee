@@ -72,24 +72,58 @@ const authUser = async (req, res) => {
     }
 
     let user = null;
+    const cleanPassword = password.trim();
 
     if (loginInput.includes('@')) {
-      // Find by email (primarily for admin/accountant)
-      user = await User.findOne({ email: loginInput.toLowerCase() });
-      if (user && (await user.matchPassword(password))) {
+      const cleanEmail = loginInput.trim().toLowerCase();
+
+      // 1. Check in User collection (Master Admin, Accountant, Admin, Section Head)
+      user = await User.findOne({ email: cleanEmail }).populate({
+        path: 'employee_id',
+        populate: { path: 'section_id', select: 'name' }
+      });
+      if (user && (await user.matchPassword(cleanPassword))) {
+        let secInfo = null;
+        if (user.role === 'section_head') {
+          const Section = require('../models/Section');
+          const sec = await Section.findOne({ section_head: user._id });
+          if (sec) {
+            secInfo = { _id: sec._id, name: sec.name };
+          } else if (user.employee_id?.section_id) {
+            secInfo = user.employee_id.section_id;
+          }
+        }
         return res.json({
           _id: user._id,
           email: user.email || '',
-          username: user.username || '',
+          username: user.username || user.full_name || '',
           role: user.role,
+          section_id: secInfo,
           token: generateToken(user._id),
+        });
+      }
+
+      // 2. Check in PortalUser collection (Section Head, Junior Assistant, Section Member)
+      const portalUser = await PortalUser.findOne({ email: cleanEmail }).populate('section_id', 'name');
+      if (portalUser && (await portalUser.matchPassword(cleanPassword))) {
+        const role = portalUser.role || (portalUser.is_section_head ? 'section_head' : 'section_member');
+        return res.json({
+          _id: portalUser._id,
+          email: portalUser.email || '',
+          username: portalUser.full_name || '',
+          full_name: portalUser.full_name || '',
+          role,
+          section_id: portalUser.section_id,
+          department_id: portalUser.department_id,
+          is_section_head: portalUser.is_section_head,
+          token: generateToken(portalUser._id),
         });
       }
     }
 
     // Check if password is a 12-digit number (Aadhaar for employees)
-    if (/^\d{12}$/.test(password.trim())) {
-      const employee = await Employee.findOne({ aadhaar_number: password.trim() });
+    if (/^\d{12}$/.test(cleanPassword)) {
+      const employee = await Employee.findOne({ aadhaar_number: cleanPassword });
       if (employee) {
         const dbNameStr = (employee.full_name || '').replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
         const inputNameStr = loginInput.replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -143,7 +177,7 @@ const getUserProfile = async (req, res) => {
         department_id: portalUser.department_id,
         section_id: portalUser.section_id,
         is_section_head: portalUser.is_section_head,
-        role: portalUser.is_section_head ? 'section_head' : 'section_member',
+        role: portalUser.role || (portalUser.is_section_head ? 'section_head' : 'section_member'),
       });
     }
 
@@ -194,8 +228,12 @@ const portalLogin = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await PortalUser.findOne({ email: email.toLowerCase() });
-    if (user && (await user.matchPassword(password))) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    // 1. Check in PortalUser
+    const user = await PortalUser.findOne({ email: cleanEmail }).populate('section_id', 'name');
+    if (user && (await user.matchPassword(cleanPassword))) {
       return res.json({
         _id: user._id,
         full_name: user.full_name,
@@ -203,8 +241,34 @@ const portalLogin = async (req, res) => {
         department_id: user.department_id,
         section_id: user.section_id,
         is_section_head: user.is_section_head,
-        role: user.is_section_head ? 'section_head' : 'section_member',
+        role: user.role || (user.is_section_head ? 'section_head' : 'section_member'),
         token: generateToken(user._id),
+      });
+    }
+
+    // 2. Also check in User collection in case an admin or section head logs in through portal login
+    const adminUser = await User.findOne({ email: cleanEmail }).populate({
+      path: 'employee_id',
+      populate: { path: 'section_id', select: 'name' }
+    });
+    if (adminUser && (await adminUser.matchPassword(cleanPassword))) {
+      let secInfo = null;
+      if (adminUser.role === 'section_head') {
+        const Section = require('../models/Section');
+        const sec = await Section.findOne({ section_head: adminUser._id });
+        if (sec) {
+          secInfo = { _id: sec._id, name: sec.name };
+        } else if (adminUser.employee_id?.section_id) {
+          secInfo = adminUser.employee_id.section_id;
+        }
+      }
+      return res.json({
+        _id: adminUser._id,
+        full_name: adminUser.full_name || adminUser.username || '',
+        email: adminUser.email,
+        role: adminUser.role,
+        section_id: secInfo,
+        token: generateToken(adminUser._id),
       });
     }
 

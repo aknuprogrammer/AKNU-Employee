@@ -39,9 +39,9 @@ export default function LoginPage() {
           <p className="text-xl font-display leading-tight mb-5">
             Accredited by NAAC with 'B+' Grade, ISO 9001:2025 Certified
           </p>
-          <h1 className="font-display text-3xl leading-tight">
+          {/* <h1 className="font-display text-3xl leading-tight">
             Secure payslip access for the entire university.
-          </h1>
+          </h1> */}
         </div>
         <p className="text-xs opacity-60">Adikavi Nannaya University</p>
       </div>

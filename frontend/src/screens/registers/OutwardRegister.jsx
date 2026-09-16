@@ -3,6 +3,7 @@ import { useRegisters, useSubmitRegister } from '../../hooks/useRegisters';
 import { useAuth } from '@/lib/auth-context';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
+import { PrintButton } from '../../components/shared/PrintButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,12 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ApprovalBadge } from '../../components/registers/ApprovalBadge';
+import { AttachmentViewer } from '../../components/registers/AttachmentViewer';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const OutwardRegister = () => {
   const { user } = useAuth();
-  const defaultSectionId = user?.role === 'master_admin' ? 'all' : (user?.employee_id?.section_id || '');
+  const userSectionId = user?.section_id?._id || user?.section_id || user?.employee_id?.section_id || '';
+  const defaultSectionId = user?.role === 'master_admin' ? 'all' : userSectionId;
   
   const [filters, setFilters] = useState({
     section_id: defaultSectionId,
@@ -53,7 +56,7 @@ export const OutwardRegister = () => {
     e.preventDefault();
       submitMutation.mutate({
         type: 'Outward',
-        section_id: user?.employee_id?.section_id,
+        section_id: userSectionId,
         ...formData,
         attachments: files
     }, {
@@ -61,6 +64,7 @@ export const OutwardRegister = () => {
         toast.success('Outward entry added successfully');
         setOpenNew(false);
         setFormData({ ...formData, reference_number: '', party_name: '', subject: '', dispatch_mode: '', dispatch_details: '' });
+        setFiles([]);
       },
       onError: (err) => toast.error(err.message)
     });
@@ -76,21 +80,47 @@ export const OutwardRegister = () => {
             Track outgoing documents
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
           {user?.role === 'master_admin' && (
-            <ExportButton 
-              data={registers} 
-              filename="Outward_Register"
-              columns={[
-                { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
-                { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
-                { header: 'Outward No', accessor: (r) => r.reference_number },
-                { header: 'Recipient', accessor: (r) => r.party_name },
-                { header: 'Subject', accessor: (r) => r.subject },
-                { header: 'Mode', accessor: (r) => r.dispatch_mode },
-                { header: 'Status', accessor: (r) => r.status }
-              ]}
-            />
+            <>
+              <ExportButton 
+                data={registers} 
+                filename="Outward_Register"
+                buttonText="Export XLSX"
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
+                  { header: 'Outward No', accessor: (r) => r.reference_number },
+                  { header: 'Recipient', accessor: (r) => r.party_name },
+                  { header: 'Subject', accessor: (r) => r.subject },
+                  { header: 'Mode', accessor: (r) => r.dispatch_mode },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+              <PrintButton
+                data={registers}
+                title="Outward Register Report"
+                buttonText="Print Report"
+                metaInfo={[
+                  { label: 'Date Range', value: (filters.startDate && filters.endDate) ? `${filters.startDate} to ${filters.endDate}` : 'All Dates' },
+                  { label: 'Scope', value: filters.section_id === 'all' ? 'All Sections' : 'Filtered Section' }
+                ]}
+                summary={[
+                  { label: 'Total Outward Letters', value: registers?.length || 0 }
+                ]}
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
+                  { header: 'Outward No', accessor: (r) => r.reference_number },
+                  { header: 'Recipient', accessor: (r) => r.party_name },
+                  { header: 'Subject', accessor: (r) => r.subject },
+                  { header: 'Dispatch Mode', accessor: (r) => r.dispatch_mode },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+            </>
           )}
           {user?.role !== 'master_admin' && (
             <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -173,15 +203,16 @@ export const OutwardRegister = () => {
               <TableHead>Recipient</TableHead>
               <TableHead>Subject</TableHead>
               <TableHead>Mode</TableHead>
+              <TableHead>Attachment</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8">Loading...</TableCell></TableRow>
             )}
             {!isLoading && (!registers || registers.length === 0) && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8">No records found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8">No records found.</TableCell></TableRow>
             )}
             {registers?.map((reg, index) => (
               <TableRow key={reg._id}>
@@ -192,6 +223,7 @@ export const OutwardRegister = () => {
                 <TableCell>{reg.party_name}</TableCell>
                 <TableCell>{reg.subject}</TableCell>
                 <TableCell>{reg.dispatch_mode}</TableCell>
+                <TableCell><AttachmentViewer attachments={reg.attachments} /></TableCell>
                 <TableCell><ApprovalBadge status={reg.status} /></TableCell>
               </TableRow>
             ))}

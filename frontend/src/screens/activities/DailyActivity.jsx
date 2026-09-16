@@ -4,6 +4,7 @@ import { useSectionEmployees } from '../../hooks/useAttendance';
 import { useAuth } from '@/lib/auth-context';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
+import { PrintButton } from '../../components/shared/PrintButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
@@ -27,19 +28,12 @@ export const DailyActivity = () => {
     search: ''
   });
 
-  // Keep filter date in sync with the current day (updates every minute)
+  // Keep clock updated for date transitions
   const [currentDate, setCurrentDate] = useState(new Date());
   useEffect(() => {
     const intervalId = setInterval(() => setCurrentDate(new Date()), 60 * 1000);
     return () => clearInterval(intervalId);
   }, []);
-
-  useEffect(() => {
-    const todayStr = format(currentDate, "yyyy-MM-dd");
-    if (filters.date !== todayStr) {
-      setFilters(prev => ({ ...prev, date: todayStr }));
-    }
-  }, [currentDate]);
 
   const { data: activities, isLoading } = useActivities(filters);
   const { data: employees } = useSectionEmployees(defaultSectionId);
@@ -134,22 +128,46 @@ export const DailyActivity = () => {
             Track daily tasks and progress
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
-          {user?.role === 'master_admin' && (
-            <ExportButton 
-              data={activities} 
-              filename="Daily_Activity"
-              columns={[
-                { header: 'Date', accessor: (a) => new Date(a.date).toLocaleDateString() },
-                { header: 'Section', accessor: (a) => a.section_id?.name || '—' },
-                { header: 'Employee', accessor: (a) => a.employee_id?.full_name || '—' },
-                { header: 'Task Description', accessor: (a) => a.task_description },
-                { header: 'Status', accessor: (a) => a.status },
-                { header: 'Remarks', accessor: (a) => a.remarks || '—' },
-                { header: 'Head Approval', accessor: (a) => a.approval_status }
-              ]}
-            />
-          )}
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+          <ExportButton 
+            data={activities} 
+            filename={`Daily_Activity_${user?.role === 'section_head' ? (user?.section_id?.name?.replace(/\s+/g, '_') || 'Section') : 'Report'}`}
+            buttonText="Export XLSX"
+            columns={[
+              { header: 'S.No', accessor: (_, idx) => idx + 1 },
+              { header: 'Date', accessor: (a) => new Date(a.date).toLocaleDateString() },
+              { header: 'Section', accessor: (a) => a.section_id?.name || '—' },
+              { header: 'Employee', accessor: (a) => a.employee_id?.full_name || '—' },
+              { header: 'Task Description', accessor: (a) => a.task_description },
+              { header: 'Status', accessor: (a) => a.status },
+              { header: 'Remarks', accessor: (a) => a.remarks || '—' },
+              { header: 'Head Approval', accessor: (a) => a.approval_status }
+            ]}
+          />
+          <PrintButton
+            data={activities}
+            title={user?.role === 'section_head' ? `Daily Activity Report - ${user?.section_id?.name || 'Section'}` : "Daily Activity Report"}
+            buttonText="Print Report"
+            metaInfo={[
+              { label: 'Report Date', value: filters.date || 'All Dates' },
+              { label: 'Scope / Section', value: user?.role === 'section_head' ? (user?.section_id?.name || 'Your Section') : (filters.section_id === 'all' ? 'All Sections' : (activities?.[0]?.section_id?.name || 'Selected Section')) }
+            ]}
+            summary={[
+              { label: 'Completed', value: activities?.filter(a => a.status === 'Completed').length || 0 },
+              { label: 'In Progress / Pending', value: activities?.filter(a => a.status !== 'Completed').length || 0 },
+              { label: 'Total Activities', value: activities?.length || 0 }
+            ]}
+            columns={[
+              { header: 'S.No', accessor: (_, idx) => idx + 1 },
+              { header: 'Date', accessor: (a) => new Date(a.date).toLocaleDateString() },
+              { header: 'Section', accessor: (a) => a.section_id?.name || '—' },
+              { header: 'Employee', accessor: (a) => a.employee_id?.full_name || '—' },
+              { header: 'Task / Activity Description', accessor: (a) => a.task_description },
+              { header: 'Status', accessor: (a) => a.status },
+              { header: 'Remarks', accessor: (a) => a.remarks || '—' },
+              { header: 'Approval', accessor: (a) => a.approval_status }
+            ]}
+          />
           {user?.role !== 'master_admin' && (
           <Dialog open={openNew} onOpenChange={setOpenNew}>
             <DialogTrigger asChild>
@@ -262,8 +280,31 @@ export const DailyActivity = () => {
       {/* View Activity Modal */}
       <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Task Details</DialogTitle>
+            {viewActivity && (
+              <PrintButton
+                data={[viewActivity]}
+                title="Employee Daily Activity Slip"
+                buttonText="Print Slip"
+                size="sm"
+                metaInfo={[
+                  { label: 'Employee', value: viewActivity.employee_id?.full_name || '—' },
+                  { label: 'Section', value: viewActivity.section_id?.name || '—' },
+                  { label: 'Date', value: new Date(viewActivity.date).toLocaleDateString() },
+                  { label: 'Status', value: viewActivity.status },
+                  { label: 'Approval Status', value: viewActivity.approval_status }
+                ]}
+                columns={[
+                  { header: 'Date', accessor: (a) => new Date(a.date).toLocaleDateString() },
+                  { header: 'Employee', accessor: (a) => a.employee_id?.full_name || '—' },
+                  { header: 'Section', accessor: (a) => a.section_id?.name || '—' },
+                  { header: 'Task Description', accessor: (a) => a.task_description },
+                  { header: 'Status', accessor: (a) => a.status },
+                  { header: 'Remarks', accessor: (a) => a.remarks || '—' }
+                ]}
+              />
+            )}
           </DialogHeader>
           {viewActivity && (
             <div className="space-y-4 py-4">
@@ -290,36 +331,6 @@ export const DailyActivity = () => {
       </Dialog>
     </div>
   );
-
-  {/* View Activity Modal */}
-  <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-    <DialogContent className="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>Task Details</DialogTitle>
-      </DialogHeader>
-      {viewActivity && (
-        <div className="space-y-4 py-4">
-          <div>
-            <span className="font-medium">Employee:</span> {viewActivity.employee_id?.full_name || '—'}
-          </div>
-          <div>
-            <span className="font-medium">Section:</span> {viewActivity.section_id?.name || '—'}
-          </div>
-          <div>
-            <span className="font-medium">Date:</span> {new Date(viewActivity.date).toLocaleDateString()}
-          </div>
-          <div>
-            <span className="font-medium">Task Description:</span>
-            <p className="mt-1 whitespace-pre-wrap">{viewActivity.task_description}</p>
-          </div>
-          <div>
-            <span className="font-medium">Remarks:</span>
-            <p className="mt-1 whitespace-pre-wrap">{viewActivity.remarks || '—'}</p>
-          </div>
-        </div>
-      )}
-    </DialogContent>
-  </Dialog>
 };
 
 export default DailyActivity;

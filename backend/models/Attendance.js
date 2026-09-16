@@ -20,6 +20,7 @@ const AttendanceSchema = new mongoose.Schema({
     remarks: { type: String }
   }],
   
+  photos: [{ type: String }], // Cloudinary URLs of attendance verification photos
   approval_status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
   section_head_comments: { type: String },
   approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

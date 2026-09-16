@@ -1,4 +1,6 @@
 const DailyActivity = require('../models/DailyActivity');
+const mongoose = require('mongoose');
+const { getSectionHeadSectionId } = require('../utils/userUtils');
 
 // @desc    Get daily activities for a section
 // @route   GET /api/activities/:sectionId
@@ -8,7 +10,10 @@ exports.getActivities = async (req, res) => {
     const { date, startDate, endDate, status, section_id, search } = req.query;
     
     let query = {};
-    if (section_id && section_id !== 'all') {
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      query.section_id = userSectionId ? userSectionId : new mongoose.Types.ObjectId();
+    } else if (section_id && section_id !== 'all') {
       query.section_id = section_id;
     }
     

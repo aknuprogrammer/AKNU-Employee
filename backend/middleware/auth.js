@@ -11,6 +11,9 @@ const protect = async (req, res, next) => {
       if (!req.user) {
         const PortalUser = require('../models/PortalUser');
         req.user = await PortalUser.findById(decoded.id).select('-password');
+        if (req.user && !req.user.role) {
+          req.user.role = req.user.is_section_head ? 'section_head' : 'section_member';
+        }
       }
       next();
     } catch (error) {

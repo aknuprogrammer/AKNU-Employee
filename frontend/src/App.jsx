@@ -33,6 +33,12 @@ function ProtectedRoute({ children, employeeRoute = false, sharedRoute = false }
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  if (user?.role === 'junior_assistant') {
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/inward-register' && currentPath !== '/outward-register') {
+      return <Navigate to="/inward-register" replace />;
+    }
+  }
   if (!sharedRoute) {
     if (isEmployee && !employeeRoute) {
       return <Navigate to="/my-payslips" replace />;
@@ -186,8 +192,9 @@ function RootRedirect() {
   if (isEmployee) return <Navigate to="/my-payslips" replace />;
   if (user?.role === 'admin') return <Navigate to="/dashboard" replace />;
   if (user?.role === 'master_admin') return <Navigate to="/portal-users" replace />;
-  if (user?.role === 'section_head') return <Navigate to="/attendance" replace />;
+  if (user?.role === 'section_head') return <Navigate to="/portal-users" replace />;
   if (user?.role === 'junior_assistant') return <Navigate to="/inward-register" replace />;
+  if (user?.role === 'section_member') return <Navigate to="/daily-activity" replace />;
   return <Navigate to="/employees" replace />;
 }
 

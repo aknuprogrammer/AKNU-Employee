@@ -13,8 +13,8 @@ export const useSubmitRegister = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: submitRegister,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['registers', data.type, data.section_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registers'] });
     },
   });
 };
@@ -23,8 +23,8 @@ export const useUpdateRegister = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateRegister,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['registers', data.type, data.section_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registers'] });
     },
   });
 };
@@ -33,8 +33,8 @@ export const useApproveRegister = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: approveRegister,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['registers', data.type, data.section_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registers'] });
     },
   });
 };

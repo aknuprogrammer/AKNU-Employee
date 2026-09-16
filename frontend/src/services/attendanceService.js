@@ -11,6 +11,24 @@ export const getSectionStudents = async (sectionId) => {
 };
 
 export const submitAttendance = async (attendanceData) => {
+  if (attendanceData.photos && attendanceData.photos.length > 0) {
+    const form = new FormData();
+    Object.entries(attendanceData).forEach(([key, value]) => {
+      if (key === 'photos') return;
+      if (typeof value === 'object' && value !== null) {
+        form.append(key, JSON.stringify(value));
+      } else {
+        form.append(key, value);
+      }
+    });
+    Array.from(attendanceData.photos).forEach((file) => {
+      form.append('photos', file);
+    });
+    const { data } = await api.post('/attendance', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.data;
+  }
   const { data } = await api.post('/attendance', attendanceData);
   return data.data;
 };

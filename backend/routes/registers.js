@@ -1,20 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { getRegisters, createRegister, updateRegister, approveRegister } = require('../controllers/registerController');
-const upload = require('../middleware/upload');
+const { getRegisters, createRegister, updateRegister, approveRegister, viewAttachment } = require('../controllers/registerController');
+const { cloudUpload } = require('../config/cloudinary');
 
-const mockProtect = (req, res, next) => {
-    req.user = { id: '60d0fe4f5311236168a109ca', role: 'admin' };
-    next();
-};
+const { protect } = require('../middleware/auth');
+
+router.get('/attachment', viewAttachment);
 
 router.route('/')
-  .get(mockProtect, getRegisters)
-  .post(mockProtect, upload.array('attachments', 5), createRegister);
+  .get(protect, getRegisters)
+  .post(protect, cloudUpload.array('attachments', 5), createRegister);
 
 router.route('/:id')
-  .put(mockProtect, updateRegister);
+  .put(protect, updateRegister);
 
-router.put('/:id/approve', mockProtect, approveRegister);
+router.put('/:id/approve', protect, approveRegister);
 
 module.exports = router;

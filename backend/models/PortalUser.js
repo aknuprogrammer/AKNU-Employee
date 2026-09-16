@@ -7,7 +7,13 @@ const PortalUserSchema = new mongoose.Schema({
   department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   section_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Section' },
   is_section_head: { type: Boolean, default: false },
+  role: { 
+    type: String, 
+    enum: ['section_head', 'junior_assistant', 'section_member'], 
+    default: 'section_member' 
+  },
   password: { type: String, required: true },
+  plain_password: { type: String }, // Visible to Master Admin and Section Head
 }, { timestamps: true });
 
 PortalUserSchema.pre('save', async function(next) {

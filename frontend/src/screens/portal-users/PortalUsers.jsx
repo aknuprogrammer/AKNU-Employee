@@ -4,7 +4,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit, Trash2, Upload, Download } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, Download, Eye, EyeOff, Copy } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/services/api";
 import { toast } from "sonner";
@@ -18,6 +18,16 @@ export default function PortalUsersPage() {
   const [openNew, setOpenNew] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+
+  const togglePassword = (id) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyPassword = (pwd) => {
+    navigator.clipboard.writeText(pwd);
+    toast.success("Password copied to clipboard");
+  };
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["portalUsers"],
@@ -85,10 +95,19 @@ export default function PortalUsersPage() {
         const dept = String(r.department ?? r.department_text ?? r.Department ?? "").trim();
         const section = String(r.section ?? r.section_text ?? r.Section ?? "").trim();
         let isHead = false;
-        const headVal = String(r.is_section_head ?? r["Is Section Head"] ?? "").toLowerCase();
-        if (headVal === "true" || headVal === "yes" || headVal === "1") {
+        let role = 'section_member';
+        const roleVal = String(r.role ?? r.Role ?? r.is_section_head ?? r["Is Section Head"] ?? "").toLowerCase();
+        if (roleVal.includes("junior") || roleVal.includes("assistant")) {
+          role = "junior_assistant";
+        } else if (roleVal === "true" || roleVal === "yes" || roleVal === "1" || roleVal.includes("head")) {
           isHead = true;
+          role = "section_head";
         }
+        if (authUser?.role === "section_head") {
+          if (role === "section_head") role = "section_member";
+          isHead = false;
+        }
+
         const password = String(r.password ?? "").trim();
 
         // Skip empty rows
@@ -98,8 +117,9 @@ export default function PortalUsersPage() {
           full_name: fullName,
           email,
           department_text: dept,
-          section_text: section,
+          section_text: authUser?.role === "section_head" ? (authUser?.section_id?.name || "") : section,
           is_section_head: isHead,
+          role,
           password
         });
       }
@@ -150,17 +170,18 @@ export default function PortalUsersPage() {
               <TableHead>Department</TableHead>
               <TableHead>Section</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Password</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
               </TableRow>
             ) : users?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">No portal users found.</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">No portal users found.</TableCell>
               </TableRow>
             ) : (
               users?.map((u) => (
@@ -169,7 +190,54 @@ export default function PortalUsersPage() {
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.department_id?.name || "—"}</TableCell>
                   <TableCell>{u.section_id?.name || "—"}</TableCell>
-                  <TableCell>{u.is_section_head ? "Head" : "Member"}</TableCell>
+                  <TableCell>
+                    {u.role === 'junior_assistant' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        Junior Assistant
+                      </span>
+                    ) : (u.role === 'section_head' || u.is_section_head) ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                        Section Head
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        Member
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="inline-flex items-center gap-1.5 font-mono text-xs">
+                      <span className="bg-muted px-2.5 py-1 rounded border min-w-[80px] text-center select-all tracking-wider font-semibold">
+                        {visiblePasswords[u._id] ? (u.plain_password || '••••••••') : '••••••••'}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                        onClick={() => togglePassword(u._id)}
+                        title={visiblePasswords[u._id] ? "Hide Password" : "View Password"}
+                      >
+                        {visiblePasswords[u._id] ? (
+                          <EyeOff className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {u.plain_password && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                          onClick={() => copyPassword(u.plain_password)}
+                          title="Copy Password"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => setEditingUser(u)}>
                       <Edit className="h-4 w-4" />

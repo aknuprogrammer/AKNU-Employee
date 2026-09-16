@@ -4,6 +4,7 @@ import { useSectionEmployees } from '../../hooks/useAttendance';
 import { useAuth } from '@/lib/auth-context';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
+import { PrintButton } from '../../components/shared/PrintButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ApprovalBadge } from '../../components/registers/ApprovalBadge';
+import { AttachmentViewer } from '../../components/registers/AttachmentViewer';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,7 +20,8 @@ export const InwardRegister = () => {
   const { user } = useAuth();
   // Section Head and Junior Assistant belong to a specific section. 
   // Master Admin will use 'all' or selected filter.
-  const defaultSectionId = user?.role === 'master_admin' ? 'all' : (user?.employee_id?.section_id || '');
+  const userSectionId = user?.section_id?._id || user?.section_id || user?.employee_id?.section_id || '';
+  const defaultSectionId = user?.role === 'master_admin' ? 'all' : userSectionId;
   
   const [filters, setFilters] = useState({
     section_id: defaultSectionId,
@@ -30,7 +33,7 @@ export const InwardRegister = () => {
   const { data: registers, isLoading } = useRegisters('Inward', filters);
   // Fetch employees only if we have a specific section to assign forwarding to
   // Assuming a junior_assistant only forwards to people in their own section
-  const { data: employees } = useSectionEmployees(user?.employee_id?.section_id);
+  const { data: employees } = useSectionEmployees(userSectionId);
   const submitMutation = useSubmitRegister();
 
   const [openNew, setOpenNew] = useState(false);
@@ -54,11 +57,18 @@ export const InwardRegister = () => {
     setFiles(selected);
   };
 
+  const formatForwardedTo = (fwd) => {
+    if (!fwd) return '—';
+    const name = fwd.full_name || '—';
+    const sec = fwd.section_id?.name || '';
+    return sec ? `${name} (${sec})` : name;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     submitMutation.mutate({
       type: 'Inward',
-      section_id: user?.employee_id?.section_id,
+      section_id: userSectionId,
       ...formData,
       attachments: files
     }, {
@@ -66,6 +76,7 @@ export const InwardRegister = () => {
         toast.success('Inward entry added successfully');
         setOpenNew(false);
         setFormData({ ...formData, reference_number: '', party_name: '', subject: '', forwarded_to: '' });
+        setFiles([]);
       },
       onError: (err) => toast.error(err.message)
     });
@@ -81,21 +92,47 @@ export const InwardRegister = () => {
             Track incoming documents
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
           {user?.role === 'master_admin' && (
-            <ExportButton 
-              data={registers} 
-              filename="Inward_Register"
-              columns={[
-                { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
-                { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
-                { header: 'Inward No', accessor: (r) => r.reference_number },
-                { header: 'Sender', accessor: (r) => r.party_name },
-                { header: 'Subject', accessor: (r) => r.subject },
-                { header: 'Forwarded To', accessor: (r) => r.forwarded_to?.full_name || '—' },
-                { header: 'Status', accessor: (r) => r.status }
-              ]}
-            />
+            <>
+              <ExportButton 
+                data={registers} 
+                filename="Inward_Register"
+                buttonText="Export XLSX"
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
+                  { header: 'Inward No', accessor: (r) => r.reference_number },
+                  { header: 'Sender', accessor: (r) => r.party_name },
+                  { header: 'Subject', accessor: (r) => r.subject },
+                  { header: 'Forwarded To', accessor: (r) => formatForwardedTo(r.forwarded_to) },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+              <PrintButton
+                data={registers}
+                title="Inward Register Report"
+                buttonText="Print Report"
+                metaInfo={[
+                  { label: 'Date Range', value: `${filters.startDate} to ${filters.endDate}` },
+                  { label: 'Scope', value: filters.section_id === 'all' ? 'All Sections' : 'Filtered Section' }
+                ]}
+                summary={[
+                  { label: 'Total Inward Letters', value: registers?.length || 0 }
+                ]}
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  { header: 'Section', accessor: (r) => r.section_id?.name || '—' },
+                  { header: 'Inward No', accessor: (r) => r.reference_number },
+                  { header: 'Sender / Party', accessor: (r) => r.party_name },
+                  { header: 'Subject', accessor: (r) => r.subject },
+                  { header: 'Forwarded To', accessor: (r) => formatForwardedTo(r.forwarded_to) },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+            </>
           )}
           {user?.role !== 'master_admin' && (
             <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -132,9 +169,14 @@ export const InwardRegister = () => {
                       <SelectValue placeholder="Select Employee" />
                     </SelectTrigger>
                     <SelectContent>
-                      {employees?.map(emp => (
-                        <SelectItem key={emp._id} value={emp._id}>{emp.full_name} ({emp.designation})</SelectItem>
-                      ))}
+                      {employees?.map(emp => {
+                        const secName = emp.section_id?.name || (typeof emp.section_id === 'string' ? emp.section_id : '') || (user?.section_id?.name || 'Section');
+                        return (
+                          <SelectItem key={emp._id} value={emp._id}>
+                            {emp.full_name} ({secName})
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -173,15 +215,16 @@ export const InwardRegister = () => {
               <TableHead>Sender</TableHead>
               <TableHead>Subject</TableHead>
               <TableHead>Forwarded To</TableHead>
+              <TableHead>Attachment</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8">Loading...</TableCell></TableRow>
             )}
             {!isLoading && (!registers || registers.length === 0) && (
-              <TableRow><TableCell colSpan={8} className="text-center py-8">No records found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center py-8">No records found.</TableCell></TableRow>
             )}
             {registers?.map((reg, index) => (
               <TableRow key={reg._id}>
@@ -191,7 +234,8 @@ export const InwardRegister = () => {
                 <TableCell className="font-mono">{reg.reference_number}</TableCell>
                 <TableCell>{reg.party_name}</TableCell>
                 <TableCell>{reg.subject}</TableCell>
-                <TableCell>{reg.forwarded_to?.full_name || '—'}</TableCell>
+                <TableCell>{formatForwardedTo(reg.forwarded_to)}</TableCell>
+                <TableCell><AttachmentViewer attachments={reg.attachments} /></TableCell>
                 <TableCell><ApprovalBadge status={reg.status} /></TableCell>
               </TableRow>
             ))}

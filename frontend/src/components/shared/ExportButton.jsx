@@ -4,7 +4,14 @@ import { Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
-export const ExportButton = ({ data, filename = "export", columns = [] }) => {
+export const ExportButton = ({
+  data,
+  filename = "export",
+  columns = [],
+  buttonText = "Export XLSX",
+  className = "w-full sm:w-auto",
+  variant = "outline"
+}) => {
   const handleExport = () => {
     if (!data || data.length === 0) {
       toast.error('No data available to export');
@@ -14,10 +21,11 @@ export const ExportButton = ({ data, filename = "export", columns = [] }) => {
     try {
       // Format data based on provided columns mapper or use raw data
       const formattedData = columns.length > 0 
-        ? data.map(item => {
+        ? data.map((item, idx) => {
             const row = {};
             columns.forEach(col => {
-              row[col.header] = col.accessor(item);
+              const val = col.accessor ? col.accessor(item, idx) : (item[col.key] ?? '');
+              row[col.header] = val !== undefined && val !== null ? val : '';
             });
             return row;
           })
@@ -37,8 +45,8 @@ export const ExportButton = ({ data, filename = "export", columns = [] }) => {
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={handleExport} className="w-full sm:w-auto">
-      <Download className="h-4 w-4 mr-2" /> Export XLSX
+    <Button variant={variant} size="sm" onClick={handleExport} className={className} type="button">
+      <Download className="h-4 w-4 mr-2" /> {buttonText}
     </Button>
   );
 };

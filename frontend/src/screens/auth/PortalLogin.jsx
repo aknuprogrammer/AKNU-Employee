@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import api from "@/services/api";
-import { Eye } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function PortalLogin() {
   const [email, setEmail] = useState("");
@@ -26,8 +26,16 @@ export default function PortalLogin() {
       
       sessionStorage.setItem("token", data.token);
       sessionStorage.setItem("user", JSON.stringify(data));
-      // Hacky way to force auth reload if using context
-      window.location.href = "/daily-activity";
+      // Route based on role
+      if (data.role === 'section_head') {
+        window.location.href = "/portal-users";
+      } else if (data.role === 'junior_assistant') {
+        window.location.href = "/inward-register";
+      } else if (data.role === 'master_admin') {
+        window.location.href = "/portal-users";
+      } else {
+        window.location.href = "/daily-activity";
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     } finally {
@@ -61,9 +69,15 @@ export default function PortalLogin() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="pr-10"
               />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-foreground">
-                {showPassword ? <Eye className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground focus:outline-none"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
               </button>
             </div>
           </div>

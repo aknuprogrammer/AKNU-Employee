@@ -4,6 +4,7 @@ import { useSectionEmployees } from '../../hooks/useAttendance';
 import { useAuth } from '@/lib/auth-context';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
+import { PrintButton } from '../../components/shared/PrintButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -87,22 +88,49 @@ export const MovementRegister = () => {
             Track employee out-of-office movements
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
           {user?.role === 'master_admin' && (
-            <ExportButton 
-              data={registers} 
-              filename="Movement_Register"
-              columns={[
-                { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
-                ...(showSection ? [{ header: 'Section', accessor: (r) => r.section_id?.name || '—' }] : []),
-                { header: 'Employee', accessor: (r) => r.employee_id?.full_name || '—' },
-                { header: 'Reason', accessor: (r) => r.reason },
-                { header: 'Place', accessor: (r) => r.place_of_visit },
-                { header: 'Out Time', accessor: (r) => r.out_time },
-                { header: 'In Time', accessor: (r) => r.actual_in_time || '—' },
-                { header: 'Status', accessor: (r) => r.status }
-              ]}
-            />
+            <>
+              <ExportButton 
+                data={registers} 
+                filename="Movement_Register"
+                buttonText="Export XLSX"
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  ...(showSection ? [{ header: 'Section', accessor: (r) => r.section_id?.name || '—' }] : []),
+                  { header: 'Employee', accessor: (r) => r.employee_id?.full_name || '—' },
+                  { header: 'Reason', accessor: (r) => r.reason },
+                  { header: 'Place', accessor: (r) => r.place_of_visit },
+                  { header: 'Out Time', accessor: (r) => r.out_time },
+                  { header: 'In Time', accessor: (r) => r.actual_in_time || '—' },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+              <PrintButton
+                data={registers}
+                title="Movement Register Report"
+                buttonText="Print Report"
+                metaInfo={[
+                  { label: 'Date Range', value: (filters.startDate && filters.endDate) ? `${filters.startDate} to ${filters.endDate}` : 'All Dates' },
+                  { label: 'Scope', value: filters.section_id === 'all' ? 'All Sections' : 'Filtered Section' }
+                ]}
+                summary={[
+                  { label: 'Total Movement Entries', value: registers?.length || 0 }
+                ]}
+                columns={[
+                  { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                  { header: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+                  ...(showSection ? [{ header: 'Section', accessor: (r) => r.section_id?.name || '—' }] : []),
+                  { header: 'Employee', accessor: (r) => r.employee_id?.full_name || '—' },
+                  { header: 'Reason', accessor: (r) => r.reason },
+                  { header: 'Place of Visit', accessor: (r) => r.place_of_visit },
+                  { header: 'Out Time', accessor: (r) => r.out_time },
+                  { header: 'In Time', accessor: (r) => r.actual_in_time || '—' },
+                  { header: 'Status', accessor: (r) => r.status }
+                ]}
+              />
+            </>
           )}
           {user?.role !== 'master_admin' && (
             <Dialog open={openNew} onOpenChange={setOpenNew}>

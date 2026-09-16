@@ -4,14 +4,18 @@ import { useAuth } from '@/lib/auth-context';
 import { AttendanceGrid } from '../../components/registers/AttendanceGrid';
 import { FilterBar } from '../../components/shared/FilterBar';
 import { ExportButton } from '../../components/shared/ExportButton';
+import { PrintButton } from '../../components/shared/PrintButton';
 import { ApprovalBadge } from '../../components/registers/ApprovalBadge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { CalendarIcon, Plus, Eye, Edit2 } from "lucide-react";
+import { CalendarIcon, Plus, Eye, Edit2, Camera, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { AttachmentViewer } from '../../components/registers/AttachmentViewer';
 
 export const EmployeeAttendance = () => {
   const { user } = useAuth();
@@ -48,6 +52,22 @@ export const EmployeeAttendance = () => {
   
   const [isTakeAttendanceOpen, setIsTakeAttendanceOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
+
+  // Verification Photos state (Uploaded to Cloudinary)
+  const [photos, setPhotos] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
+
+  const handlePhotoChange = (e) => {
+    const selected = Array.from(e.target.files);
+    const oversized = selected.filter(f => f.size > 5 * 1024 * 1024);
+    if (oversized.length > 0) {
+      toast.error('Each photo must be ≤ 5 MB');
+      return;
+    }
+    setPhotos(selected);
+    const previews = selected.map(f => URL.createObjectURL(f));
+    setPhotoPreviews(previews);
+  };
 
   useEffect(() => {
     if (employees && !isLoadingTodayAtt) {
@@ -120,13 +140,16 @@ export const EmployeeAttendance = () => {
         date: new Date(),
         section_id: sectionId,
         type: 'employee',
-        records
+        records,
+        photos
       };
 
       submitMutation.mutate(payload, {
         onSuccess: () => {
           toast.success('Attendance Finalized');
           setIsTakeAttendanceOpen(false);
+          setPhotos([]);
+          setPhotoPreviews([]);
         },
         onError: (err) => toast.error('Failed to submit: ' + err.message)
       });
@@ -160,6 +183,19 @@ export const EmployeeAttendance = () => {
   const isLoadingForm = isLoadingEmp || isLoadingTodayAtt;
   const isSaving = submitMutation.isPending || updateMutation.isPending;
 
+  const summaryRecords = attendances?.map((att, index) => {
+    const presentCount = att.records?.filter(r => r.status === 'Present').length || 0;
+    const absentCount = (att.records?.length || 0) - presentCount;
+    return {
+      sno: index + 1,
+      date: new Date(att.date).toLocaleDateString(),
+      prepared_by: formatPreparedBy(att.prepared_by),
+      present_count: presentCount,
+      absent_count: absentCount,
+      status: att.approval_status
+    };
+  }) || [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -170,7 +206,36 @@ export const EmployeeAttendance = () => {
             View attendance history and log today's attendance
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+          <ExportButton 
+            data={summaryRecords} 
+            filename="Attendance_Records"
+            buttonText="Export XLSX"
+            columns={[
+              { header: 'S.No', accessor: (a) => a.sno },
+              { header: 'Date', accessor: (a) => a.date },
+              { header: 'Prepared By', accessor: (a) => a.prepared_by },
+              { header: 'Total Present', accessor: (a) => a.present_count },
+              { header: 'Total Absent/Leave', accessor: (a) => a.absent_count },
+              { header: 'Status', accessor: (a) => a.status }
+            ]}
+          />
+          <PrintButton
+            data={summaryRecords}
+            title="Section Attendance Report"
+            buttonText="Print Report"
+            metaInfo={[
+              { label: 'Date Range', value: filters.startDate === filters.endDate ? filters.startDate : `${filters.startDate} to ${filters.endDate}` }
+            ]}
+            columns={[
+              { header: 'S.No', accessor: (a) => a.sno },
+              { header: 'Date', accessor: (a) => a.date },
+              { header: 'Prepared By', accessor: (a) => a.prepared_by },
+              { header: 'Present', accessor: (a) => a.present_count },
+              { header: 'Absent/Leave', accessor: (a) => a.absent_count },
+              { header: 'Status', accessor: (a) => a.status }
+            ]}
+          />
           <Button onClick={() => setIsTakeAttendanceOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Take Attendance
@@ -189,16 +254,17 @@ export const EmployeeAttendance = () => {
               <TableHead>Prepared By</TableHead>
               <TableHead>Total Present</TableHead>
               <TableHead>Total Absent/Leave</TableHead>
+              <TableHead>Photo</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoadingAttHistory && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">Loading...</TableCell></TableRow>
             )}
             {!isLoadingAttHistory && (!attendances || attendances.length === 0) && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">No attendance records found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">No attendance records found.</TableCell></TableRow>
             )}
             {attendances?.map((att, index) => {
               const presentCount = att.records?.filter(r => r.status === 'Present').length || 0;
@@ -210,6 +276,9 @@ export const EmployeeAttendance = () => {
                   <TableCell>{formatPreparedBy(att.prepared_by)}</TableCell>
                   <TableCell className="text-green-600 font-medium">{presentCount}</TableCell>
                   <TableCell className="text-red-600 font-medium">{absentCount}</TableCell>
+                  <TableCell>
+                    <AttachmentViewer attachments={att.photos} label="Photo" />
+                  </TableCell>
                   <TableCell><ApprovalBadge status={att.approval_status} /></TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => setSelectedRecord(att)}>
@@ -245,6 +314,35 @@ export const EmployeeAttendance = () => {
             </Button>
           </div>
 
+          {/* Verification Photo Upload Section */}
+          {!existingRecordId && (
+            <div className="bg-muted/30 p-3.5 rounded-lg border mb-4 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <Label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                  <Camera className="h-4 w-4 text-primary" />
+                  Verification Photo(s) (Optional)
+                </Label>
+                <span className="text-[11px] text-muted-foreground">Upload roll-call proof or faculty photo to Cloudinary</span>
+              </div>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotoChange}
+                className="bg-background text-xs cursor-pointer"
+              />
+              {photoPreviews.length > 0 && (
+                <div className="flex gap-2 pt-1.5 overflow-x-auto">
+                  {photoPreviews.map((src, idx) => (
+                    <div key={idx} className="h-16 w-16 rounded-md border overflow-hidden shrink-0 bg-background relative shadow-sm">
+                      <img src={src} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {isLoadingForm ? (
             <div className="py-8 text-center text-muted-foreground">Loading attendance data...</div>
           ) : (
@@ -261,16 +359,80 @@ export const EmployeeAttendance = () => {
       {/* View Historical Attendance Modal */}
       <Dialog open={!!selectedRecord} onOpenChange={(open) => !open && setSelectedRecord(null)}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Attendance Details - {selectedRecord?.section_id?.name}</DialogTitle>
+          <DialogHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <DialogTitle>Attendance Details - {selectedRecord?.section_id?.name || 'Section'}</DialogTitle>
+            {selectedRecord?.records?.length > 0 && (
+              <div className="flex items-center gap-2">
+                <ExportButton
+                  data={selectedRecord.records}
+                  filename={`Attendance_${selectedRecord?.section_id?.name || 'Section'}_${new Date(selectedRecord.date).toISOString().split('T')[0]}`}
+                  buttonText="Export"
+                  columns={[
+                    { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                    { header: 'Employee Name', accessor: (r) => r.employee_id?.full_name || 'Unknown' },
+                    { header: 'Status', accessor: (r) => r.status },
+                    { header: 'Remarks', accessor: (r) => r.remarks || '—' }
+                  ]}
+                />
+                <PrintButton
+                  data={selectedRecord.records}
+                  title={`Attendance Sheet - ${selectedRecord?.section_id?.name || 'Section'}`}
+                  buttonText="Print Sheet"
+                  metaInfo={[
+                    { label: 'Date', value: new Date(selectedRecord.date).toLocaleDateString() },
+                    { label: 'Section', value: selectedRecord?.section_id?.name || '—' },
+                    { label: 'Prepared By', value: formatPreparedBy(selectedRecord?.prepared_by) },
+                    { label: 'Status', value: selectedRecord?.approval_status || '—' }
+                  ]}
+                  summary={[
+                    { label: 'Present', value: selectedRecord.records.filter(r => r.status === 'Present').length },
+                    { label: 'Absent/Leave', value: selectedRecord.records.filter(r => r.status !== 'Present').length },
+                    { label: 'Total', value: selectedRecord.records.length }
+                  ]}
+                  columns={[
+                    { header: 'S.No', accessor: (_, idx) => idx + 1 },
+                    { header: 'Employee Name', accessor: (r) => r.employee_id?.full_name || 'Unknown' },
+                    { header: 'Status', accessor: (r) => r.status },
+                    { header: 'Remarks', accessor: (r) => r.remarks || '—' }
+                  ]}
+                />
+              </div>
+            )}
           </DialogHeader>
           <div className="mt-4">
-            <div className="flex gap-6 mb-4 text-sm bg-muted/30 p-3 rounded-md">
+            <div className="flex flex-wrap gap-4 sm:gap-6 mb-4 text-sm bg-muted/30 p-3 rounded-md">
               <div><span className="font-semibold">Date:</span> {selectedRecord && new Date(selectedRecord.date).toLocaleDateString()}</div>
               <div><span className="font-semibold">Prepared By:</span> {formatPreparedBy(selectedRecord?.prepared_by)}</div>
               <div><span className="font-semibold">Status:</span> {selectedRecord?.approval_status}</div>
             </div>
-            <div className="border rounded-lg overflow-x-auto max-h-[60vh]">
+
+            {/* Verification Photos Preview */}
+            {selectedRecord?.photos && selectedRecord.photos.length > 0 && (
+              <div className="mb-4 p-3 border rounded-lg bg-muted/20">
+                <p className="text-xs font-semibold flex items-center gap-1.5 mb-2 text-foreground">
+                  <Camera className="h-4 w-4 text-primary" />
+                  Attendance Verification Photos ({selectedRecord.photos.length})
+                </p>
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {selectedRecord.photos.map((photoUrl, idx) => (
+                    <a
+                      key={idx}
+                      href={photoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative block h-24 w-32 rounded-lg border overflow-hidden bg-background shrink-0 hover:ring-2 hover:ring-primary transition-all shadow-sm"
+                    >
+                      <img src={photoUrl} alt={`Verification ${idx + 1}`} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1">
+                        <ExternalLink className="h-3.5 w-3.5" /> View
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="border rounded-lg overflow-x-auto max-h-[50vh]">
               <Table>
                 <TableHeader className="bg-primary/100 sticky top-0">
                   <TableRow>

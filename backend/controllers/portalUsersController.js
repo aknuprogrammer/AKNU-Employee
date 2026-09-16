@@ -2,14 +2,15 @@ const PortalUser = require('../models/PortalUser');
 const User = require('../models/User');
 const Department = require('../models/Department');
 const Section = require('../models/Section');
+const mongoose = require('mongoose');
+const { getSectionHeadSectionId } = require('../utils/userUtils');
+
 exports.getPortalUsers = async (req, res) => {
   try {
     let filter = {};
-    if (req.user && req.user.role === 'section_head') {
-      const fullUser = await User.findById(req.user._id).populate('employee_id');
-      if (fullUser?.employee_id?.section_id) {
-        filter.section_id = fullUser.employee_id.section_id;
-      }
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      filter.section_id = userSectionId ? userSectionId : new mongoose.Types.ObjectId();
     }
     const users = await PortalUser.find(filter)
       .populate('department_id', 'name')
@@ -24,7 +25,7 @@ exports.getPortalUsers = async (req, res) => {
 
 exports.createPortalUser = async (req, res) => {
   try {
-    const { full_name, email, department_id, section_id, is_section_head, password } = req.body;
+    const { full_name, email, department_id, section_id, is_section_head, role, password } = req.body;
     
     // Check if email already exists
     const existing = await PortalUser.findOne({ email });
@@ -33,25 +34,42 @@ exports.createPortalUser = async (req, res) => {
     }
 
     let finalSectionId = section_id || null;
-    if (req.user && req.user.role === 'section_head') {
-      const fullUser = await User.findById(req.user._id).populate('employee_id');
-      if (fullUser?.employee_id?.section_id) {
-        finalSectionId = fullUser.employee_id.section_id;
+    let isHeadCreator = false;
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId) {
+        return res.status(400).json({ success: false, message: 'No section assigned to your Section Head account' });
       }
+      if (section_id && section_id.toString() !== userSectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Section Heads cannot add members to other sections' });
+      }
+      if (role === 'section_head' || is_section_head === true) {
+        return res.status(403).json({ success: false, message: 'Section Heads cannot create another Section Head' });
+      }
+      finalSectionId = userSectionId;
+      isHeadCreator = true;
     }
+
+    let assignedRole = role || (is_section_head ? 'section_head' : 'section_member');
+    if (isHeadCreator && assignedRole === 'section_head') {
+      assignedRole = 'section_member';
+    }
+    const isHead = assignedRole === 'section_head';
 
     const newUser = new PortalUser({
       full_name,
       email,
       department_id: department_id || null,
       section_id: finalSectionId,
-      is_section_head: is_section_head || false,
-      password
+      is_section_head: isHead,
+      role: assignedRole,
+      password,
+      plain_password: password
     });
 
     await newUser.save();
     
-    // Remove password from response
+    // Remove password hash from response
     const savedUser = newUser.toObject();
     delete savedUser.password;
 
@@ -64,21 +82,43 @@ exports.createPortalUser = async (req, res) => {
 exports.updatePortalUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, email, department_id, section_id, is_section_head, password } = req.body;
+    const { full_name, email, department_id, section_id, is_section_head, role, password } = req.body;
 
     const user = await PortalUser.findById(id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId || !user.section_id || user.section_id.toString() !== userSectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized to modify members of other sections' });
+      }
+      if (role === 'section_head' || is_section_head === true) {
+        return res.status(403).json({ success: false, message: 'Section Heads cannot assign the Section Head role' });
+      }
+      if (section_id && section_id.toString() !== userSectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Section Heads cannot move members to another section' });
+      }
+    }
+
     if (full_name) user.full_name = full_name;
     if (email) user.email = email;
     if (department_id !== undefined) user.department_id = department_id || null;
-    if (section_id !== undefined && req.user?.role !== 'section_head') {
+    if (section_id !== undefined && req.user?.role !== 'section_head' && !req.user?.is_section_head) {
       user.section_id = section_id || null;
     }
-    if (is_section_head !== undefined) user.is_section_head = is_section_head;
-    if (password) user.password = password; // pre-save hook will hash it
+    if (role !== undefined) {
+      user.role = role;
+      user.is_section_head = role === 'section_head';
+    } else if (is_section_head !== undefined) {
+      user.is_section_head = is_section_head;
+      user.role = is_section_head ? 'section_head' : 'section_member';
+    }
+    if (password) {
+      user.password = password; // pre-save hook will hash it
+      user.plain_password = password;
+    }
 
     await user.save();
 
@@ -94,6 +134,18 @@ exports.updatePortalUser = async (req, res) => {
 exports.deletePortalUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const user = await PortalUser.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (!userSectionId || !user.section_id || user.section_id.toString() !== userSectionId.toString()) {
+        return res.status(403).json({ success: false, message: 'Not authorized to delete members of other sections' });
+      }
+    }
+
     await PortalUser.findByIdAndDelete(id);
     res.json({ success: true, message: 'Portal User deleted' });
   } catch (error) {
@@ -112,10 +164,10 @@ exports.bulkImportPortalUsers = async (req, res) => {
     let isSectionHeadUpload = false;
 
     // If section_head is uploading, lock all imports to their section
-    if (req.user && req.user.role === 'section_head') {
-      const fullUser = await User.findById(req.user._id).populate('employee_id');
-      if (fullUser?.employee_id?.section_id) {
-        finalSectionId = fullUser.employee_id.section_id;
+    if (req.user && (req.user.role === 'section_head' || req.user.is_section_head)) {
+      const userSectionId = await getSectionHeadSectionId(req.user);
+      if (userSectionId) {
+        finalSectionId = userSectionId;
         isSectionHeadUpload = true;
       }
     }
@@ -188,13 +240,18 @@ exports.bulkImportPortalUsers = async (req, res) => {
           }
         }
 
+        const assignedRole = row.role || (is_section_head ? 'section_head' : 'section_member');
+        const isHead = assignedRole === 'section_head' || is_section_head === true;
+
         const newUser = new PortalUser({
           full_name,
           email,
           department_id: deptId,
           section_id: secId,
-          is_section_head: isSectionHeadUpload ? false : (is_section_head || false),
-          password
+          is_section_head: isSectionHeadUpload ? false : isHead,
+          role: isSectionHeadUpload && assignedRole === 'section_head' ? 'section_member' : assignedRole,
+          password,
+          plain_password: password
         });
 
         await newUser.save();
