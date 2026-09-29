@@ -43,6 +43,13 @@ export function AppShell({ children }) {
         { to: "/payslips", label: "Payslips", icon: FileText },
         { to: "/form16", label: "Form 16", icon: Landmark },
       ] : []),
+      // Accountant
+      ...(user?.role === "accountant" ? [
+        // { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/employees", label: "Employees", icon: Users },
+        { to: "/payslips", label: "Payslips", icon: FileText },
+        { to: "/form16", label: "Form 16", icon: Landmark },
+      ] : []),
       // Master Admin
       ...(user?.role === "master_admin" ? [
         { to: "/portal-users", label: "Global Employees", icon: Users },
@@ -102,8 +109,8 @@ export function AppShell({ children }) {
                 key={n.to}
                 to={n.to}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/85 hover:bg-sidebar-accent"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground/85 hover:bg-sidebar-accent"
                   }`}
               >
                 <n.icon className="h-4 w-4" />
@@ -158,8 +165,8 @@ export function AppShell({ children }) {
                         to={n.to}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${active
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                            : "text-sidebar-foreground/85 hover:bg-sidebar-accent"
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/85 hover:bg-sidebar-accent"
                           }`}
                       >
                         <n.icon className="h-4 w-4" />

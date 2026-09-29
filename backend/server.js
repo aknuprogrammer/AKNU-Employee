@@ -63,15 +63,15 @@ mongoose.connect(process.env.MONGO_URI)
       }
 
       // Auto-seed default MASTER ADMIN
-      const existingMasterAdmin = await User.findOne({ role: 'master_admin' });
+      const existingMasterAdmin = await User.findOne({ email: 'masteradmin@aknu.edu.in' });
       if (!existingMasterAdmin) {
         await User.create({
-          email: 'masteradmin@aknu.edu',
-          full_name: 'Master Administrator',
+          email: 'masteradmin@aknu.edu.in',
+          username: 'Master Administrator',
           role: 'master_admin',
           password: 'Admin@1234'
         });
-        console.log('🌱 Default master admin created → email: masteradmin@aknu.edu  password: Admin@1234');
+        console.log('🌱 Default master admin created → email: masteradmin@aknu.edu.in  password: Admin@1234');
       }
 
       // Auto-seed default SECTION HEAD
